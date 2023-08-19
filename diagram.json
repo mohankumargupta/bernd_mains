@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "author": "Raspberry Pi",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "wokwi-arduino-nano", "id": "nano", "top": -94.67, "left": -26, "attrs": {} },
+    {
+      "type": "wokwi-lcd2004",
+      "id": "lcd1",
+      "top": 4.53,
+      "left": -70.8,
+      "attrs": { "pins": "i2c" }
+    }
+  ],
+  "connections": [
+    [ "lcd1:GND", "nano:GND.1", "black", [ "h-17.87", "v-47.3", "h204.67" ] ],
+    [ "lcd1:VCC", "nano:5V", "red", [ "h-38.53", "v-68.8", "h202" ] ],
+    [ "lcd1:SDA", "nano:A4", "green", [ "h-49.2", "v-58.96", "h174.67", "v-2" ] ],
+    [ "lcd1:SCL", "nano:A5", "yellow", [ "h-59.2", "v-83.13", "h-1.33" ] ]
+  ],
+  "dependencies": {}
+}

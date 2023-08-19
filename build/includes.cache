@@ -1,0 +1,52 @@
+[
+  {
+    "Sourcefile": null,
+    "Include": "",
+    "Includepath": "C:\\Users\\Mohan\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\avr\\1.8.6\\cores\\arduino"
+  },
+  {
+    "Sourcefile": null,
+    "Include": "",
+    "Includepath": "C:\\Users\\Mohan\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\avr\\1.8.6\\variants\\eightanaloginputs"
+  },
+  {
+    "Sourcefile": "C:\\Users\\Mohan\\Developer\\wowki\\bernd_mains\\build\\sketch\\bernd_mains.ino.cpp",
+    "Include": "EEPROMex.h",
+    "Includepath": "C:\\Users\\Mohan\\Documents\\Arduino\\libraries\\EEPROMEx"
+  },
+  {
+    "Sourcefile": "C:\\Users\\Mohan\\Developer\\wowki\\bernd_mains\\build\\sketch\\bernd_mains.ino.cpp",
+    "Include": "hd44780.h",
+    "Includepath": "C:\\Users\\Mohan\\Documents\\Arduino\\libraries\\hd44780"
+  },
+  {
+    "Sourcefile": "C:\\Users\\Mohan\\Developer\\wowki\\bernd_mains\\build\\sketch\\bernd_mains.ino.cpp",
+    "Include": "Wire.h",
+    "Includepath": "C:\\Users\\Mohan\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\avr\\1.8.6\\libraries\\Wire\\src"
+  },
+  {
+    "Sourcefile": "C:\\Users\\Mohan\\Developer\\wowki\\bernd_mains\\build\\sketch\\bernd_mains.ino.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Mohan\\Documents\\Arduino\\libraries\\EEPROMEx\\EEPROMex.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Mohan\\Documents\\Arduino\\libraries\\hd44780\\hd44780.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Mohan\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\avr\\1.8.6\\libraries\\Wire\\src\\Wire.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\Mohan\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\avr\\1.8.6\\libraries\\Wire\\src\\utility\\twi.c",
+    "Include": "",
+    "Includepath": null
+  }
+]

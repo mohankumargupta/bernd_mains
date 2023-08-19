@@ -1,0 +1,6 @@
+{
+    "sketch": "bernd_mains.ino",
+    "output": "build",
+    "board": "arduino:avr:nano",
+    "configuration": "cpu=atmega328"
+}

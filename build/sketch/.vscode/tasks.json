@@ -1,0 +1,28 @@
+#line 1 "C:\\Users\\Mohan\\Developer\\wowki\\bernd_mains\\.vscode\\tasks.json"
+{
+    "version": "2.0.0",
+    "tasks": [
+
+        {
+            "label": "Start_Wokwi",
+            "command": "${command:wokwi-vscode.start}",
+            "type": "shell",
+            "problemMatcher": []
+        },
+        {
+            "label": "Build_Arduino_Code",
+            "command": "${command:arduino.verify}",
+            "type": "shell",
+            "problemMatcher": [],
+            
+        },
+        {
+            "label": "Build_And_Run_Arduino_code",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "Build_Arduino_Code",
+                "Start_Wokwi"
+            ]
+        }        
+    ]
+}

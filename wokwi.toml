@@ -1,0 +1,6 @@
+[wokwi]
+version=1
+firmware='build/bernd_mains.ino.hex'
+elf='build/bernd_mains.ino.elf'
+rfc2217ServerPort = 4000
+
