@@ -1,0 +1,1518 @@
+/*
+
+   230VAC essential supply controller.   2 / 4 / 2020
+
+    This program has been developed to control equipment to supply power
+   continuously to test equipment that is required to run 24hr 365 days
+   each year. It requires a battery capacity so that it can run for 2 weeks
+   continuously.
+
+   1)  Unit functions
+       1.1) Monitor 230VAC mains supply voltage and frequency. ✓
+       1.2) Switch between 230VAC sources as required.  ✓
+       1.3) Disconnect 230VAC output for any combination of the following:  ✓
+             Inverter battery is low. ✓
+             230VAC mains faults. ✓
+             230VAC standby faults.
+       1.4) Manual override available to start the system. Switch at rear.
+       1.5) Monitor 230VAC standby supply voltage and frequency.
+       1.6) Inrush current limiter.
+       1.7) USB port for program update and monitoring.
+       1.8) No Daylight savings.
+
+
+   2)  230VAC mains voltages
+
+       2.1) Voltage level
+            Australian mains voltage range:
+            Maintenance max 262V  +14% for less 1 min.
+            Normal max      253V  +10% for 100% of time.
+            Normal          230VAC
+            Normal min      216V  -6%  for 100% of timex.
+            Maintenance min 206V  -10% for less 1 min.
+
+            Surge                   Less than 1 minute.
+            Sustained surge over    Greater than 1 minute.
+            Sag                     Less than 1 minute.
+            Momentary interruption  Less than 1 min.
+            Sustained under         Greater than 1 minute.
+            Sustained interruption  Greater than 1 minute.
+
+       2.2) Frequency excursions.
+            The electricity providers supply the normally correct number of
+            pulses in a 24 hour period.
+            Time errors are for 15 sec period.
+            The source should be stable for at least 10 min before being
+            switched back in.
+
+            Normal operating       +- 0.15Hz  Within .1% for 99% of the time.
+            Normal excursion       +- 0.25Hz
+            Generator load change  +- 0.50Hz
+            Operational freq toler +- 1.00Hz
+            Extreme freq tolerance +- 3.00Hz
+
+            The mains can take up to 10 min to stabilise.
+
+            Pin 2 - ISR
+
+       2.3) 230V stability
+            The external 230V sources must be be stable for at least 10 minutes
+            before being switched back in after a fault has ceased.
+            A single timer is used for both voltage and frequency faults.
+            The mains can be switched in earlier, 2 minutes, if the inverter
+            battery is low.
+            A minimum 40ms dead time is required when switching between 230V AC
+            sources.
+
+            Relay 1  Switches On 230VAC Mains supply.
+            Relay 2  Switches between 230V Mains and Standby supplies.
+            Relay 3  Switches On 230VAC Standby supply.
+            Relay 4  Limits the surge current.
+
+            Arduino has a 10Bit ADC. The input source resistance is <= 10K ohm.
+            A resolution of 1 Bit equals approximately 292.7mV.
+            ADC values for selected voltages are shown below
+
+       2.4) Technical and Network specifications.
+            AS3000  Electrical installations.
+            AS61000 Steady state limits public electricity supply.
+            AS4777  Grid connection energy systems via inverters.
+            AS60038
+   
+   3)  ADS1115
+
+       Vin            :  0 -/+4.096V
+       Bits           :  15 Bits 32767 ( Single ended )
+       Milli volt/Bit : 125uV / Bit
+       Configuration  :  Single ended.
+       PGA            :  1x gain
+
+           Voltage   ADC 15Bits   Cal value    ADC 8Bits   Cal value
+            23          2,512       22.998         78       22.8739
+           206         22,500      205.9999       702      205.8651
+           216         23,592      215.9978       737      216.1290
+           230         25,121      229.9966       784      229.9120
+           253         27,633      252.9954       863      253.0792
+           262         28,616      261.9953       893      261.8768
+           300         32,767      300.0000      1023      300.0000
+                     0.00915555                          0.293255
+
+   4)  LCD display
+       The LCD display, 20 X 4 characters, will be able to display
+
+       1.1) Curent voltage ( 230.1 )  6 char
+       1.2) Daily high
+       1.3) Daily low.
+       1.4) Current energy consumption. ( 999.9 )
+       1.5) M
+       1.9) Date and time of last supply fault and cause.
+
+       1.10) Alternate display
+
+         1.10.1) Fault number of last fault. Date, time, duration, type of fault.
+         1.10.2) Total number of faults.
+         1.10.3) Number of NV, LV, HV, HF, LF and total duration for each type.
+         1.10.4) Total number of faults since the beginning if the year.  
+         1.10.5) Total power consumption.
+         1.10.6) Consumption since the beginning of the year.
+         1.10.7) A
+         1.10.8) A
+
+         Fault types: LV- Low volts, HV- High volts, NV- No voltage,
+                      HF- Frequency high, LF- frequency low
+
+   5)  Controller
+
+       Micro:      ATMeag328 ✓
+       Oscill:     16Mhz
+       Ram:        
+       EEprom:     
+       
+       Program execution time
+       Min:    100 us
+       Max:    300 us
+
+   8)  Things to do:
+
+       8.1)   Hardware
+       8.1.1) 240 VAC monitor
+              Separate diode bridge and filter circuit, 50ms time constant.
+       8.1.2) Monitor isolated frequency.
+       8.1.3) Standby override switch.
+
+       8.2)   Both Freq and volt error at same time.
+              Resolve error if freq error an volt error occurs at same time.
+ 
+       8.3)   Standby supply.
+       8.3.1) Monitor frequency of standby supply.
+       8.3.2) Minimum freq - Volt, current, temp.
+       8.3.3) Maximum freq - Volt, current, temp.
+       8.3.4) Standby freq - Average over a 1 week period. 
+
+       8.4)   Alarms and indicators 
+       8.4.1) 230V mains fault    Red    Urgent.
+       8.4.2) 230V standby fault  Red    Urgent.
+       8.4.3) Battery status
+                Charged / medium    Green.
+                Low                 Yellow.
+                Discharged          Red.
+       8.4.4) System alarm  RTC battery fault......
+
+       8.4.5) G    .
+       8.4.6) R
+       8.4.7) B
+       8.4.8) G
+
+       8.5)   DC battery bank
+              The battery bank consists of ( 3 X 4 ) Orelikon 4CP205 batteries which
+              are monitored continuously. The 230VAC sine
+              wave Inverter must be shut down if the battery voltage drops below
+              11.5V DC.
+
+              Orelikon            4CP205
+              Battery volt        4.50
+              Capacity            206Ah
+              Equalise volt       14.1V 2.35V per cell. max 6hr at I10
+              Float voltage       13.5V 4.50V few discharges.
+              Float voltage       13.7  4.58V daily discharges.
+              No load volt        12.7V
+              Inverter connected  12.????? 
+              Discharge volt      10.8V 1.80V at 20hr rate.   
+              C10 hr              20.5A, 77 W
+              C20 hr              11.4A, 40 W
+              Float current       60 - 120mA per 100Ah.  720mA - 1.44A
+              Weight              34.7kg per battery
+              Service life        15 years
+
+       8.6)   RTC 
+              The RTC will will contain the date and time which is used is by the
+              system.
+
+       8.7)   Surge limiting
+              Limit the surge current on the 230V.  ??????
+              Surge protection will be applied when both mains and standby
+              supplies have failed.
+              Resistor = 47 ohms  ?????????
+
+   9)  Time
+       In this program 1 year is equal to 365 days.
+
+        Time 
+        2^32      1 sec resolution =>  136 years  70 days  6:28:15.00
+        2^32    0.1 sec resolution =>   13 years 226 days  0:38:49.05
+        2^32   0.01 sec resolution =>    1 year  132 days  2:27:52.95
+        2^32  0.001 sec resolution =>             49 days 17:27:52.95
+ 
+  10)  Relay
+        230VAC switcher
+        Max voltage      300VAC
+        Max current      10A
+        Max VA           2800VA ( 280W )
+        Init contact res 30 milli ohm
+        Coil voltage     12V
+        Coil resistance  160 ohms, max 900mW
+        Electrical life  100,000 operations
+        Insul resistance 1000M ohm
+        Operate time     28mS
+        Release time     23mS
+        Operate volt     > 9.6V
+        Release volt     < 1.2V
+        Temp rise @10A   45 C
+        Num operations   100,000
+
+        Surge relay
+        Series resistor: 
+        Max voltage      300VAC
+        Max current      16A
+        Max VA           3840VA ( 384W )
+        Init contact res 100 milli ohm
+        Coil voltage     12V
+        Coil resistance  200 ohms, typ 720mW
+        Electrical life  100,000 operations
+        Insul resistance 100M ohm
+        Operate time     20mS
+        Release time      8mS
+        Operate volt     > 9.6V
+        Release volt     < 0.6V
+        Temp rise @10A   45 C
+        Num operations   100,000
+
+  11)  Transformer
+
+         6.3VAC => (230 VAC) =  8.91 VDC, (216 VAC) =  8.37 VDC, (275 VAC) =  7.53 VDC.
+         9VAC   => (230 VAC) = 12.73 VDC, (216 VAC) = 11.95 VDC, (275 VAC) = 15.22 VDC.
+
+          14.7V =  12 + (2 x 0.6) + 1.5 + 1.0.
+
+
+  12)  Data recording.
+       The system will record following 230V voltage and frequency errors:
+
+       12.1) Type of interruption
+           Voltage: none - complete power failure
+                    low  - what the lowest voltage level reached
+                    high - what the highest voltage level reached
+       12.2) Frequency:
+           Frequencies are only measured if the voltage is above 100VAC
+                      none - complete power failure
+                      low  - lowest frequency reached
+                      high - highest frequency reached
+       12.3) Date and time of event.
+       12.4) Duration of error.
+       12.5) Data changes must be stored every hour or when the power fails
+
+
+  13)  Arduino pin allocations
+        Pin   I/O     Function
+        A0    I/P     Measure 230V mains voltage.   293mV per Bit.
+        A1    I/P     Measure 230V standby voltage. 293mV per Bit.
+        A2    I/P     Measure battery voltage.      14.648mV per Bit.
+        A3  
+        A4    I2C     LCD display
+        A5    I2C
+
+        D2    I/P     230V mains frequency ISR
+        D3    O/P     230V mains relay
+        D4    O/P     230V standby relay
+        D5    I/P
+        D6    O/P     230V switch over relay     
+        D7    O/P     230V battery charger control.
+        D8    O/P     Mains DC supply control
+        D9    O/P     
+       D10    O/P     RTC  SPI CS
+       D11    O/P          SPI MOSI
+       D12    I/P          SPI MISO
+       D13    O/P          SPI SCK
+
+
+  14)  EEprom allocations
+
+        Address  Bytes	Function
+
+          0	    2	UTC Year
+          2	    1	UTC Month
+          3	    1	UTC Date
+          4	    1	UTC Hour
+          5	    1	Timezone hour
+          6	    1	Timezone min
+          7	    1   
+
+         10	    1   Start date
+         11	    1   Start month
+         12	    2   Start year
+
+         14	    4   Start date and time of current power failure when low battery. Normally zero.
+         18	    1   Mains voltage state.
+         19	    1   Mains frequency state.
+
+         20	    4   Total number of voltage excursions
+         24	    1   Total duration of voltage excursions, years.
+         25	    4   Total duration of voltage excursions, day, hour, min ...
+         29	    4   Voltage and frequency error at same time, in seconds.
+
+         29	    4   Lowest normal voltage reached.
+         33	    4   Date and time of lowest normal voltage.
+         37	    4   Highest normal voltage reached.
+         41	    4   Date and time of highest normal voltage.
+
+         45	    2   Number of Sag
+         47	    1   Total sag duration, years.
+         48	    4   Total sag duration, years, day, hour, min ...
+         52	    4   Lowest sag voltage reached.
+         56	    4   Date and time of lowest sag voltage.
+         60	    2   Duration of shortest sag.
+         62	    4   Start Date and time of shortest sag.
+         66	    4   Sag voltage reached.
+         70	    4   Duration of longest sag.
+         74	    4   Start Date and time of longest sag.
+         78	    4   Sag voltage reached.
+
+         82	    2   Number of Surges
+         84	    1   Total surge duration, years.
+         85	    4   Total surge duration, day, hour, min ...
+         89	    4   Highest surge voltage reached.
+         93	    4   Date and time of highest surge voltage.
+         97	    2   Duration of shortest surge.
+         99	    4   Start Date and time of shortest surge.
+        103	    4   Surge voltage reached.
+        107	    4   Duration of longest surge.
+        111	    4   Start Date and time of longest surge.
+        115	    4   Surge voltage reached.
+
+        119	    2   Number of total power failures, zero volts.
+        121	    1   Total power failures duration, years.
+        122	    4   Total power failures duration, day, hour, min ...
+        126	    2   Duration of shortest power failure.
+        128	    4   Start Date and time of shortest power failure.
+        132	    4   Duration of longest power failure.
+        136	    4   Start Date and time of longest power failure.
+
+        140	    4   Total number of frequency excursions.
+        144	    4   Total duration of frequency excursions.
+        148	    4   Highest frequency
+        152	    4   Date and time of the highest frequency.
+        156	    4   Lowest frequency
+        160	    4   Date and time of the lowest frequency.
+
+        164	    2   Total number of low frequency excursions.
+        166	    4   Total duration of low frequency excursions.
+        170	    2   Shortest duration of low frequency excursion.
+        172	    4   Date and time of the shortest low frequency duration.
+        176	    4   Lowest frequency
+        180	    4   Longest duration of low frequency excursion.
+        184	    4   Date and time of the Longest low frequency duration.
+        188	    4   Lowest frequency
+
+        192	    2   Number of high frequency excursions.
+        194	    4   Duration of high frequency excursions.
+        198	    2   Shortest duration of high frequency excursion.
+        200	    4   Highest frequency
+        204	    4   Date and time of the shortest high frequency duration.
+        208	    4   Longest duration of high frequency excursion.
+        212	    4   Highest frequency
+        216	    4   Date and time of the Longest high frequency duration.
+
+        230	    2   Last user EEprom address.
+
+
+  15)  LD600-12 Sine wave inverter
+
+        15.1 ) Sleep mode
+             The Inverter has a demand mode setting.
+              4W 16.667mA
+              5W 20mA
+             14W 60mA
+             16W 66.667mA
+
+     15.2 ) Fuse
+            7.5A
+
+     15.3 ) Led indicators
+             When powered up Led 1 should flash after 3 sec.
+             Sleep mode           : Led 1 flashing.  60mA
+             On mode              : Led 1 continuously ON. Current used is dependant on load.
+                                    Inverter returns to sleep mode 10 sec after load turned OFF.
+             Overload mode        : Led 2 ON. > 17.0V
+             DC volts High / Low  : Led 3 ON.
+             Temperature overload : Led 4 ON.
+
+     15.4 ) Low volts
+
+             The default is 11.0V. Range 10.0V to 11.5V
+
+
+  16)  Hardware
+
+     16.1 ) Transformers
+              Must have 3KV isolation
+
+     16.1 ) Optocoupler
+              6N33 Optocoupler
+              Isolation 2.5KV 
+              CTR       Typ 1100, Min 400%
+              Delay to Low 30uS, Delay to High 90uS
+
+              460,000 ohms = 230VAC / .5mA
+
+     16.1 ) Diode
+              FR05-20   2KV  500mA
+
+     16.1 ) MOV
+              275VAC 6500A
+
+
+  74LS71
+  74LS279
+
+       1.3)  
+       1.3.1) 
+
+
+
+
+
+
+
+
+
+
+
+*/   //  Line number 440 =================
+
+// Include the libraries required for your project:
+
+  #include "Arduino.h"
+  #include <LiquidCrystal.h>                            //  LCD library.
+  #include <SPI.h>                                      //  SPI library.
+  //#include <DS3234BW.h>                                 //  DS3234  RTC with interrupt.
+  #include "DS3234BW.h"
+  #include <Wire.h>                                     //  I2C bus.
+  #include <Adafruit_ADS1015.h>                         //  ADS1115 single ended 15 Bit.
+  #include <EEPROMex.h>                                 //  Include new EEPROM library.
+  #include <avr/pgmspace.h>                             //  for progmem
+
+
+  #define progVersion        0.44                       //  Program version  2 / 4 / 2020
+
+  #define mainVoltDef      230.0                        //  Australian nominal mains AC voltage. 
+  #define mainVoltTrigMax  250.0                        //  Mains trigger maximum voltage. 
+  #define mainVoltTrigMin  216.0                        //  Mains trigger low voltage. 
+  #define mainHzDef         50.0                        //  Australian nominal mains frequency.
+  #define mainsStabilityTime  40                        //  Def 10 min. Mains stability time in sec.
+
+  #define battVoltFloat     13.50
+//  #define battVoltMin       11.40
+
+   const byte systemConfig = B11010000;  //  System configuration.
+                                         //  Bit 7 External 230V,         0 = No, 1 = Yes.
+                                         //  Bit 6 Ext 230V batt charger, 0 = No, 1 = Yes.
+                                         //  Bit 5 Standby 230V inverter, 0 = No, 1 = Yes.
+                                         //  Bit 4 Solar / wind charger,  0 = No, 1 = Yes.
+                                         //  Bit 3 Generator 230V,        0 = No, 1 = Yes.
+                                         //  Bit 2          ,             0 = No, 1 = Yes.
+                                         //  Bit 1          ,             0 = No, 1 = Yes.
+                                         //  Bit 0          ,             0 = No, 1 = Yes.
+
+  #define EEpromATmegaSize 1023                         //  ATmega328 EEprom size.
+  #define eeAddrStart       228                         //  Storage of last user EEprom address.
+  word eeAddr = eeAddrStart + 2;
+
+         byte systemStatus = B00000100;  //  System status.
+                                         //  Bit 7 Urgent alarm,      0 = No,  1 = Yes.
+                                         //  Bit 6 Medium alarm,      0 = No,  1 = Yes.
+                                         //  Bit 5 Low alarm,         0 = No,  1 = Yes.
+                                         //  Bit 4 230V Inverter,     0 = Off, 1 = On.
+                                         //  Bit 3 230V charger,      0 = Off, 1 = On.
+                                         //  Bit 2 230V mains,        0 = Off, 1 = On.
+                                         //  Bit 1 Main 230V alarm,   0 = No,  1 = Yes.
+                                         //  Bit 0 Main 230Hz alarm,  0 = No,  1 = Yes.
+
+
+
+
+//   byte deBug = 0;                                    //  0 = Debug Off.
+
+               word uIntMin = 0;
+               word uIntMax = 65535;
+
+
+//    _______________________________     Hardware definition     ___________________________________
+
+//                  RS  E  D4  D5  D6  D7               The LCD RW pin must be connected to ground.
+//  LiquidCrystal lcd( 3, 4,  6,  7,  8,  9 );          //  Serial LCD 
+
+
+//                   byte ds3234IntPin =  8;            //  DS3234 Interrupt / Square wave pin.
+//                   byte sckPin       = 13;            //  SPI SCK pin.
+//                   byte misoPin      = 12;            //  SPI MISO pin.
+//                   byte mosiPin      = 11;            //  SPI MOSI pin.
+                   byte ds3234SelPin = 10;              //  DS3234 chip enable pin.
+
+  const char   *days[]= {"","Mon","Tue","Wed","Thu","Fri","Sat","Sun"};  //  These can't be in PROGMEM
+
+//           volatile byte rtcMillisState = B00000000;   //  Contains fractional sec state, new B0 0ms, B1 250ms, B2 500ms, and  B3 750ms (milliseconds).
+  volatile unsigned long rtcTimerMs = 0;
+           volatile byte rtcDatTimState = B00000000;     //  Contains RTC states, new sec, min, hour, daily...........
+//           unsigned long milli = 0;
+           unsigned long milliPrev = 0;
+//                unsigned long unixTime = 0;
+
+          volatile byte sec      =  0;
+          volatile byte prevSec  = 99;                  //  Previous second.
+                   byte testSec  =  0;
+                   byte min      =  0;
+                   byte prevMin  =  0;                  //  Previous Minute.
+                   byte hour     =  0; 
+                   byte prevHour = hour;                //  Previous Hour.
+                   byte date     =  1;                  //  Date 1 - 31.
+                   byte prevDate = date;                //  Previous Date.
+                   byte doW      =  1;                  //  Mon 1, Sun 7.
+                   byte mon      =  1;                  //  Month 1 - 12.
+                   byte prevMon  = mon;                 //  Previous Hour.
+           unsigned int year     =  2023;               //  Year 1970 - 2099.
+           unsigned int prevYear = year;                //  Previous Hour.
+          unsigned long unixTimeLoc = 0;                //  Unix time stamp.
+
+                   char locTimeZoneHr  = 10;            //  Local time zone Hours offset +/- hr
+                   char locTimeZoneMin =  0;            //  Local time zone Minutes offset  min
+//                   byte locDayLightSav =  0;          //  Daylight savings 0 = Off, 60 minutes.
+
+
+//                   char minVal1  =  0;
+//                   char minVal2  =  0;
+
+
+
+
+
+//   Adafruit_ADS1115 ads0(0x48);                       //  16 Bit ADC with address 0x48.
+//   int16_t adc0, adc1, adc2, adc3; // adc4, adc5, adc6, adc7;
+
+//      float ads0RDivider0 = 1.0;                      //  Volt didvider 0
+//      float ads0RDivider1 = 1.0;                      //  Volt didvider 1
+//      float ads0RDivider2 = 1.0;                      //  Volt didvider 2
+//      float ads0RDivider3 = 1.0;                      //  Volt didvider 3
+
+//      float ads0Volt0 = 0.0;                          //  Cal ads0 input voltage 0
+//      float ads0Volt1 = 0.0;                          //  Cal ads0 input voltage 1
+//      float ads0Volt2 = 0.0;                          //  Cal ads0 input voltage 2
+//      float ads0Volt3 = 0.0;                          //  Cal ads0 input voltage 3
+
+
+
+//             const byte almSysUrgPin  =  4;           //  System alarm pin.
+//             const byte almSysMedPin  =  5;           //  System alarm pin.
+//             const byte almSysLowPin  =  6;           //  System alarm pin.
+//                   word mainStabilTimer = 0;          //  230V / frequency fault timer in seconds.
+//             const byte almSysUrgPin  =  7;           //  System alarm pin.
+
+
+           byte main230Status = B01000100;              //  Main 230V supply status.
+                                                        //  Bit 7  > 250 V,     0 = No, 1 = Yes.
+                                                        //  Bit 6  216 - 250 V, 0 = No, 1 = Yes.
+                                                        //  Bit 5   30 - 216 V, 0 = No, 1 = Yes.
+                                                        //  Bit 4  < 30 V,      0 = No, 1 = Yes.
+
+                                                        //  Bit 3  > 50.25 Hz,       0 = No, 1 = Yes.
+                                                        //  Bit 2  50.00 - 50.25 Hz, 0 = No, 1 = Yes.
+                                                        //  Bit 1  49.75 - 50.00 Hz, 0 = No, 1 = Yes.
+                                                        //  Bit 0  < 49.75 Hz,       0 = No, 1 = Yes.
+
+
+           byte batteryStatus = B00000100;              //  Battery status.
+                                                        //  Bit 7 Alarm,         0 = No,   1 = Yes.
+                                                        //  Bit 6 Batt boost,    0 = No,   1 =   13.6 -  13.8V.
+                                                        //  Bit 5 Batt float,    0 = No,   1 =   13.3 -  13.6, 10hr.
+                                                        //  Bit 4 Batt high ,    0 = No,   1 =   12.3 -  13.3,  8.5hr.
+                                                        //  Bit 3 Batt medium,   0 = No,   1 =   11.85 - 12.3,  4hr.
+                                                        //  Bit 2 Batt low,      0 = No,   1 =   11.55 - 11.85, 2hr.
+                                                        //  Bit 1 Batt very low, 0 = No,   1 =   11.25 - 11.55, 1hr.
+                                                        //  Bit 0 Batt flat,     0 = No,   1 = < 11.25V.
+
+
+
+             const byte mainSuppDcPin = 8;              //  230V mains voltage measure pin.
+             const byte rly230MainsPin   =  3;          //  230V mains relay pin.
+             const byte rly230StandbyPin =  4;          //  230V standby inverter relay pin.
+             const byte rly230SelectPin = 6;            //  230V source selection relay pin.
+
+             const byte mainVoltPin = A0;               //  230V mains voltage measure pin.
+             const byte stbyVoltPin = A1;               //  230V standby voltage measure pin.
+
+                  float mainVoltNow = mainVoltDef;
+               unsigned long main230FaultTimer = 0;     //  Unix time
+                  float mainVoltHigh = mainVoltDef;
+                  float mainVoltLow = mainVoltDef;
+                  float mainVoltPeak = mainVoltDef;
+               unsigned long mainVoltPeakDate = 0;      //  Unix time
+
+                  float mainVoltSurge = mainVoltDef;
+          unsigned long mainVoltSurgeTimer = 0;         //  Unix time
+                   word mainVoltSurgeCount = 0;
+          unsigned long mainVoltSurgeDate = 0;
+          unsigned long mainVoltSurgeDur = 0;
+          unsigned long mainVoltSurgeDurTot = 0;        //  Start time of high voltage.
+          unsigned long mainVoltSurgeMaxDur = uIntMin;
+          unsigned long mainVoltSurgeMaxDate = 0;
+                   word mainVoltSurgeMinDur = uIntMax;
+          unsigned long mainVoltSurgeMinDate = 0;
+
+                  float mainVoltSag = mainVoltDef;
+          unsigned long mainVoltSagTimer = 0;           //  Unix time
+                   word mainVoltSagCount = 0;
+          unsigned long mainVoltSagDate = 0;
+          unsigned long mainVoltSagDur = 0;
+          unsigned long mainVoltSagDurTot = 0;          //  Start time of high voltage.
+          unsigned long mainVoltSagMaxDur = uIntMin;
+          unsigned long mainVoltSagMaxDate = 0;
+                   word mainVoltSagMinDur = uIntMax;
+          unsigned long mainVoltSagMinDate = 0;
+ 
+                   word mainVoltZeroCount = 0;
+          unsigned long mainVoltZeroTimer = 0;          //  Unix time
+          unsigned long mainVoltZeroDate = 0;
+          unsigned long mainVoltZeroDur = 0;
+          unsigned long mainVoltZeroDurTot = 0;         //  Start time of high voltage.
+          unsigned long mainVoltZeroMaxDur = uIntMin;
+          unsigned long mainVoltZeroMaxDate = 0;
+                   word mainVoltZeroMinDur = uIntMax;
+          unsigned long mainVoltZeroMinDate = 0;
+
+
+//             const byte mainHzPin =  2;               //  230V mains frequency pin.
+                  float mainHzNow = mainHzDef;          //  Current AC frequency.
+ volatile       boolean started;
+ volatile unsigned long startTime;
+ volatile unsigned long endTime;
+                   long timeFreq = 0;                   // 
+
+
+//          unsigned long mainHzFaultTimer = 0;         //  freq fault timer
+
+                  float mainHzHigh = mainHzDef;
+          unsigned long mainHzHighTimer = 0;            //  Unix time
+                   word mainHzHighCount = 0;
+          unsigned long mainHzHighDate = 0;
+          unsigned long mainHzHighDur = 0;
+          unsigned long mainHzHighDurTot = 0;           //  Start time of high voltage.
+          unsigned long mainHzHighMaxDur = uIntMin;
+          unsigned long mainHzHighMaxDate = 0;
+                   word mainHzHighMinDur = uIntMax;
+          unsigned long mainHzHighMinDate = 0;
+
+                  float mainHzLow = mainHzDef;
+          unsigned long mainHzLowTimer = 0;             //  Unix time
+                   word mainHzLowCount = 0;
+          unsigned long mainHzLowDate = 0;
+          unsigned long mainHzLowDur = 0;
+          unsigned long mainHzLowDurTot = 0;            //  Start time of high voltage.
+          unsigned long mainHzLowMaxDur = uIntMin;
+          unsigned long mainHzLowMaxDate = 0;
+                   word mainHzLowMinDur = uIntMax;
+          unsigned long mainHzLowMinDate = 0;
+
+
+             const byte battVoltPin    = A2;            //  Battery measurement pin.
+             const byte battChargerPin = 7;             //  Battry charge controller output.
+                  float battVolt       = 13.3;          //  Battery voltage.
+//                  float battOffsetVolt =  0.0;        //  Battery voltage.
+                   byte battfloatCntr = 128;            //  Battry charge controller output.
+
+//                  float battVolt1      = 13.0;        //  Battery voltage.
+//                  float battVolt2      = 13.0;        //  Battery voltage.
+//                  float battMeas = 12.8;              //  Test data.
+          unsigned long battVoltLowTimer = 0;           //  Battery voltage timer.
+             const word battVoltStabTime = 40;          //  Battery stability time, 7200s -> 120 min 
+
+
+
+
+                   byte uByte = 0;
+                   word uInt = 0;
+
+//          unsigned long tempLong = 0;
+
+          unsigned long timeStart  = 0;                 //  Microsecond timing test. Start timer.
+          unsigned long timeFinish = 0;                 //  Microsecond timing test. Finish timer.
+          unsigned long timeDiff = 0;
+          unsigned long timeMax = uIntMin;
+          unsigned long timeMin = uIntMax;
+//                   word t = 0;
+
+
+
+
+void setup() {  //   _____________________________________________________________
+
+  pinMode( mainSuppDcPin, OUTPUT);                              //  Mains DC supply controller.
+  pinMode( mainSuppDcPin, HIGH);
+
+  Serial.begin(115200);                                         //  Set up the Serial port to the computer.
+  Serial.print(F("\n\n  Mains 230VAC monitor.  Ver ")); Serial.println(progVersion); Serial.println("");
+
+//  lcd.begin(20, 4);                                           //  Configure the LCD's hardware, rows and columns.
+//  lcd.clear();
+//  lcd.setCursor(0, 0);
+//  lcd.print(F("Debug = "));                                   //  lcd.print("Software  V "); lcd.print( progVersion );
+
+  pinMode( ds3234SelPin, OUTPUT);
+  pinMode( ds3234SelPin, HIGH);
+//  pinMode( ds3234IntPin, INPUT);                              //  IRQ / SQW. Open collector output.
+//  pinMode( ds3234IntPin, HIGH);
+
+  RTC.begin(ds3234SelPin);                                      //  Initialise the DS3234 whoes CS is connected "ds3234SelPin".
+//  RTC.setLocTimZonDst( locTimeZoneHr, locTimeZoneMin, locDayLightSav ); //  Set local TZ and DST. Off values = 0. Other values indicate active.
+
+  locTimeZoneHr  = EEPROM.read( 5 );
+  locTimeZoneMin = EEPROM.read( 6 );
+//  locDayLightSav = EEPROM.read( 7 );
+
+//  Serial.print(F("\n  RTC Day   Date\t Time\t   UTC sec   - "));
+  if ( RTC.oscFailure() ) {                                     //  Oscillator failure detector.
+//     Serial.println(F("RTC time is incorrect, check battery."));
+       hour = 16;
+       min  = 30;
+       sec  =  0;
+       date = 31;                                               //  Def 31, Wed.
+       mon  = 12;                                               //  Def 12.
+       year = 2023;                                             //  Def 2014.
+       RTC.setTIME( hour, min, sec );                           //  Set the default Time.
+       RTC.setDATE( date, mon, year );                          //  Set the default Date.
+       delay(5000);
+       }
+     else {                                                     //  Osc stopped.
+//           Serial.println(F("\t  RTC time is valid but not accurate."));  //  OSF flag not est.
+           }
+//  delay(2000);
+
+  year = RTC.readYear();
+  mon  = RTC.readMon();
+  date = RTC.readDate();
+  hour = RTC.readHour();
+  min  = RTC.readMin();
+  sec  = RTC.readSec();
+  RTC.setDow();
+  doW = RTC.readDow();
+
+//   RTC.setTIME( 7, 0, 0 ); RTC.setDATE( 24, 9, 2018 ); locDayLightSav = 1; RTC.setDow();
+
+//  RTC.setLocTimZonDst( locTimeZoneHr, locTimeZoneMin, locDayLightSav ); RTC.setDow();
+//  unixTimeLoc = RTC.readUnixLoc();
+
+//  Serial.print("      "); Serial.print( doW ); Serial.print("  "); Serial.print( days[doW] );
+//  Serial.print("  "); dispDigitalDate();
+//  Serial.print("  "); dispDigitalTime(); Serial.print("  "); Serial.println( RTC.readUnixLoc() );
+
+//  pinMode( almSysUrgPin, OUTPUT);
+//  pinMode( almSysUrgPin, LOW);
+//  pinMode( almSysMedPin, OUTPUT);
+//  pinMode( almSysMedPin, LOW);
+//  pinMode( almSysLowPin, OUTPUT);
+//  pinMode( almSysLowPin, LOW);
+//  pinMode( ds3234SelPin, OUTPUT);
+//  pinMode( ds3234SelPin, HIGH);
+//  pinMode( ds3234SelPin, OUTPUT);
+//  pinMode( ds3234SelPin, HIGH);
+
+//  ads0.begin();
+//  ads0.setGain(GAIN_ONE);                                     //  1x gain, 0 - +4.096V, 1 bit = 2.5mV.
+//  ads1.begin();
+//  ads1.setGain(GAIN_ONE);                                     //  1x gain, 0 - +4.096V, 1 bit = 2.5mV.
+
+  attachInterrupt ( digitalPinToInterrupt ( 2 ), period, CHANGE);
+//  pinMode( mainHzPin, INPUT_PULLUP);                          //  Mains frequency pin.
+//  Serial.println(F("\n  External 230V supply defined."));
+//  Serial.println(F("  External 230VAC source initally selected.\n"));
+
+  pinMode( rly230StandbyPin, OUTPUT);                           //  Standby 230V relay control pin.
+  digitalWrite( rly230StandbyPin, 0 );
+//  standby230VoltNow = analogRead(standbyVoltPin) * 25.815;
+//  pinMode( standbyFreqPin, INPUT_PULLUP);                     //  Standby frequency pin.
+// Serial.println(F("\n  Standby 230V def."));
+
+  pinMode( rly230SelectPin,  OUTPUT);                           //  230V source selection relay.
+  digitalWrite( rly230SelectPin, 0 );                           //  Default external 230V selected.
+// Serial.println(F("  230V select def."));
+
+  delay( 20 );
+  pinMode( rly230MainsPin,   OUTPUT);                           //  External 230V relay control pin.
+  select230Mains();
+//  digitalWrite( rly230MainsPin, 1 );
+// Serial.println(F("\n  Mains 230V activ."));
+
+  pinMode( battChargerPin,  OUTPUT);                            //  Control 230V battery charger.
+  digitalWrite( battChargerPin, 0 );                            //  Default off.
+// Serial.println(F("  230V Battery charger control."));
+
+//  lcd.print("                ");                              //  Print 16 characters to the LCD.
+//  lcd.print("                    ");                          //  Print 20 characters to the LCD.
+
+//  main230VoltFaultDurTot = ( 86399 * 100 ) + 99;              //  Test data.
+//  Serial.print("\n  609 Fault time =    "); Serial.print( main230VoltFaultDurTot ); Serial.print(" ");
+//  Serial.println("\n");                                       //  Test data.
+//  dispTimeFract( main230VoltFaultDurTot );
+//  Serial.println("\n");                                       //  Test data.
+
+//  main230FaultTimer = unixTimeLoc + 1;
+
+  year = 2023; //  Test
+  mon = 2;     //  Test
+  date = 3;    //  Test
+  hour = 10;   //  Test
+  min = 58;    //  Test
+  sec = 55;    //  Test
+  prevYear = year;
+  prevMon = mon;
+  prevDate = date;
+  prevHour = hour;
+  prevMin = min;
+  prevSec = sec;
+
+  battfloatCntr = 2;
+  milliPrev = millis();
+
+//  Serial.println(F("\n  230VAC monitor config.\n\n"));
+
+//  delay( 2000 );
+
+  }  //  Eo Setup  _______________________________________________________________
+
+
+
+
+
+
+
+ void loop() {  //  So Loop  _____________________________________________________
+
+  timeStart = micros();
+/*
+  uByte = RTC.readSec();
+  if ( uByte != sec ) {
+       bitSet( rtcDatTimState, 0);
+       sec = uByte;
+       }
+*/
+
+/*  if ( testSec == 1 ) {      //  Test sec simulat  remove  _____________________
+
+  if ( (unixTimeLoc >= 0 ) && (unixTimeLoc <= 9 ) ) {             //  Test .
+        mainVoltNow = 230.0;
+        mainHzNow = 50.00;
+        battVolt = 13.9;
+        }
+    else if ( (unixTimeLoc >= 10 ) && (unixTimeLoc <= 19 ) ) {    //  Test .
+               mainVoltNow = 230.0;
+               mainHzNow = 50.0;
+               battVolt = 13.7;
+               }
+    else if ( (unixTimeLoc >= 20 ) && (unixTimeLoc <= 29 ) ) {    //  Test .
+               mainVoltNow = 230.0;
+               mainHzNow = 50.0;
+               battVolt = 13.5;
+               }
+    else if ( (unixTimeLoc >= 50 ) && (unixTimeLoc <= 65 ) ) {    //  Test .
+               mainVoltNow = 230.0;
+               mainHzNow = 50.00;
+               battVolt = 12.7;
+               }
+    else if ( (unixTimeLoc >= 66 ) && (unixTimeLoc <= 70 ) ) {    //  Test .
+               mainVoltNow = 230.0;
+               mainHzNow = 50.00;
+               battVolt = 12.0;
+               }
+    else if ( (unixTimeLoc >= 71 ) && (unixTimeLoc <= 80 ) ) {    //  Test .
+               mainVoltNow = 130.0;
+               mainHzNow = 50.00;
+               battVolt = 11.4;
+               }
+    else if ( (unixTimeLoc >= 81 ) && (unixTimeLoc <= 90 ) ) {    //  Test .
+               mainVoltNow = 230.0;
+               mainHzNow = 50.0;
+               battVolt = 12.2;
+               }
+    else if ( (unixTimeLoc >= 100 ) && (unixTimeLoc <= 130 ) ) {  //  Test .
+               mainVoltNow = 230.0;
+               mainHzNow = 50.0;
+               battVolt = 12.6;
+               }
+    else if ( unixTimeLoc > 230 ) {                               //  Test .
+              mainVoltNow = 230.0;
+              mainHzNow = 50.00;
+              battVolt = 13.5;
+              }
+    }
+*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+// Serial.print("  930 UTime "); Serial.print( unixTimeLoc ); Serial.print(", "); Serial.print( mainVoltNow, 1 ); Serial.print("V, ");
+// Serial.print( mainHzNow, 1 ); Serial.print("Hz, "); Serial.print( battVolt, 1 ); Serial.print("V, Sys "); Serial.println( systemStatus, BIN );
+  mainVoltNow = analogRead( mainVoltPin ) * 60 * 0.00488759;    // ( 300 / ( 7.5 * √ 2 ) ) * ( 10.6066 / 5 ) * ADC value * ( 5 / 1023 )
+                                                                //          28.28427       *     2.12132   * 1023      *   4.88759mV   ( 300V AC )
+  mainVoltNow = 230.00; 
+  main230Status &= 0x0F;
+  if ( mainVoltNow > mainVoltPeak) {
+       mainVoltPeak = mainVoltNow;
+       mainVoltPeakDate = unixTimeLoc;
+//     Serial.print("  940 Peak "); Serial.print( mainVoltPeak ); Serial.print("V, time "); Serial.println(mainVoltPeakDate);
+       }
+  if ( mainVoltNow >= mainVoltTrigMax ) {                                       //  High mains volt fault detector
+       bitSet(main230Status, 7);
+       if ( mainVoltNow > mainVoltSurge ) {                                     //  Record maximum surge voltage during fault.
+            mainVoltSurge = mainVoltNow;
+            }
+       if ( mainVoltSurgeDate == 0 ) {
+            ++mainVoltSurgeCount;
+            mainVoltSurgeDate = unixTimeLoc;
+//          Serial.print("  950 Surge  "); Serial.println( mainVoltSurge );
+            }
+       }  // Eo
+    else if ( (mainVoltNow >= mainVoltDef) && (mainVoltNow < mainVoltTrigMax) ) { //  Record high mains voltage.
+               bitSet(main230Status, 6);
+               if ( mainVoltNow > mainVoltHigh ) {
+                    mainVoltHigh = mainVoltNow;
+//                  Serial.print("  957 High  "); Serial.println( mainVoltHigh );
+                    }
+              }  // Eo
+    else if ( (mainVoltNow >= mainVoltTrigMin) && (mainVoltNow < mainVoltDef ) ) { //  Record low mains voltage.
+               bitSet(main230Status, 6);
+               if ( mainVoltNow < mainVoltLow ) {
+                    mainVoltLow = mainVoltNow;
+//                  Serial.print("  964 Low  "); Serial.println( mainVoltLow );
+                    }
+              }  // Eo
+    else if ( (mainVoltNow > 30.0) && (mainVoltNow < mainVoltTrigMin) ) {       //  Low mains volt fault detector.
+               bitSet(main230Status, 5);
+               if ( mainVoltNow < mainVoltSag) {
+                    mainVoltSag = mainVoltNow;
+                    }
+               if ( mainVoltSagDate == 0 ) {
+                    ++mainVoltSagCount;
+                    mainVoltSagDate = unixTimeLoc;
+//                  Serial.print("  975 Sag  "); Serial.println( mainVoltSag );
+                    }
+               }  // Eo
+    else {                                                                   //  Total power failure.
+          bitSet(main230Status, 4);
+          if ( mainVoltZeroDate == 0 ) {
+               ++mainVoltZeroCount;
+               mainVoltZeroDate = unixTimeLoc;
+//             Serial.print("  983 Power fail  "); Serial.println( mainVoltNow );
+               }
+          }  // Eo
+  if ( (main230Status & 0xB0) != 0x00 ) {
+        bitSet(systemStatus, 1);                                              //  Mains volt alarm indicator
+        }
+
+
+  if ( endTime ) {
+       if ( endTime > startTime) {
+            timeFreq = (endTime - startTime);
+            mainHzNow = ( 500000.0 / timeFreq );
+//  Serial.print("  995 Hz "); Serial.println( mainHzNow );
+            }
+       endTime = 0; 
+       }
+//  Serial.print("  997 Hz "); Serial.println( mainHzNow );
+
+  main230Status &= 0xF0;                                                        //  Main freq verify
+  if ( mainHzNow > 50.25 ) {
+       bitSet(main230Status, 3);
+       if ( mainHzNow > mainHzHigh ) {
+            mainHzHigh = mainHzNow;
+            }
+       if ( mainHzHighDate == 0 ) {
+            ++mainHzHighCount;
+            mainHzHighDate = unixTimeLoc;
+//          Serial.print(" 1008 Hz high  "); Serial.println( mainHzNow );
+            }
+       }  // Eo
+    else if ( (mainHzNow >= 50.00) && (mainHzNow <= 50.25) ) {
+               bitSet(main230Status, 2);
+//             Serial.print(" 1013 Norm Hz  ");  Serial.println( mainHzNow );
+               }  // Eo
+    else if ( (mainHzNow >= 49.75) && (mainHzNow < 50.00) ) {
+               bitSet(main230Status, 1);
+//             Serial.print(" 1017 Norm Hz  "); Serial.println( mainHzNow );
+               }  // Eo
+     else {                                                                  //  Less than 49.5 Hz
+           bitSet(main230Status, 0);
+           if ( mainHzNow < mainHzLow ) {
+                mainHzLow = mainHzNow;
+                }
+           if ( mainHzLowDate == 0 ) {
+                ++mainHzLowCount;
+                mainHzLowDate = unixTimeLoc;
+//              Serial.print(" 1027 Hz low  "); Serial.println( mainHzNow );
+                }
+           }  // Eo
+  if ( (main230Status & 0x09) != 0x00 ) {
+        bitSet(systemStatus, 0);                                                //  Mains freq alarm indicator
+        }
+//  Serial.print(" 1033 Sys "); Serial.print( systemStatus, BIN ); Serial.print(", Main "); Serial.println( main230Status, BIN ); 
+
+  if ( (systemStatus & 0x03) != 0x00 ) {                                        //  Mains fault routines.
+        if ( (bitRead(systemStatus, 4) == 0) && ((batteryStatus & 0x7C) != 0x00) ) {
+//            Serial.print("\n 1037 Switch to Stby, batt "); Serial.println( batteryStatus, BIN );
+              select230Standby();
+              battChargerState( 0, main230Status );
+              }
+          else if ( (batteryStatus & 0x03) != 0x00 ) {                          //  Low battery, disable relays.
+//                  Serial.println("\n 1043 Low power");
+                    lowPowerMode();
+                    bitSet(systemStatus, 7);
+                    }
+       }  //  Eo
+
+
+  if ( bitRead(systemStatus, 1) == 1 ) {                                        //  Mains voltage fault calculation.
+       if ( (mainVoltSurgeDate != 0) && ((main230Status & 0x70) != 0x00) ) {
+             mainVoltSurgeDur = unixTimeLoc - mainVoltSurgeDate;
+             mainVoltSurgeDurTot += mainVoltSurgeDur;
+             if ( mainVoltSurgeDur > mainVoltSurgeMaxDur ) {
+                  mainVoltSurgeMaxDur = mainVoltSurgeDur;
+                  mainVoltSurgeMaxDate = mainVoltSurgeDate;
+                  }
+              if ( mainVoltSurgeDur < mainVoltSurgeMinDur ) {
+                   mainVoltSurgeMinDur = mainVoltSurgeDur;
+                   mainVoltSurgeMinDate = mainVoltSurgeDate;
+                   }
+         //  Store data
+             mainVoltSurge = mainVoltDef;
+             mainVoltSurgeDate = 0;
+             bitClear(systemStatus, 1);
+//           Serial.print(" 1065 Surge end, dur "); Serial.println( mainVoltSurgeDur ); Serial.println("");
+             }  //  Eo of Surge  
+       if ( (mainVoltSagDate != 0) && ((main230Status & 0xD0) != 0x00) ) {      //  Mains voltage fault calculation.
+             mainVoltSagDur = unixTimeLoc - mainVoltSagDate;
+             mainVoltSagDurTot += mainVoltSagDur;
+             if ( mainVoltSagDur > mainVoltSagMinDur ) {
+                  mainVoltSagMaxDur = mainVoltSagDur;
+                  mainVoltSagMaxDate = mainVoltSagDate;
+                  }
+             if ( mainVoltSagDur < mainVoltSagMinDur ) {
+                  mainVoltSagMinDur = mainVoltSagDur;
+                  mainVoltSagMinDate = mainVoltSagDate;
+                  }
+         //  Store data
+             mainVoltSag = mainVoltDef;
+             mainVoltSagDate = 0;
+             bitClear(systemStatus, 1);
+//           Serial.print(" 1082 Sag end, dur "); Serial.println( mainVoltSagDur ); Serial.println("");
+             }  //  Eo of Sag  
+       if ( (mainVoltZeroDate != 0) && ((main230Status & 0xE0) != 0x00) ) {     //  Mains voltage fault calculation.
+             mainVoltZeroDur = unixTimeLoc - mainVoltZeroDate;
+             mainVoltZeroDurTot += mainVoltZeroDur;
+             if ( mainVoltZeroDur > mainVoltZeroMaxDur ) {
+                  mainVoltZeroMaxDur = mainVoltZeroDur;
+                  mainVoltZeroMaxDate = mainVoltZeroDate;
+                  }
+             if ( mainVoltZeroDur < mainVoltZeroMinDur ) {
+                  mainVoltZeroMinDur = mainVoltZeroDur;
+                  mainVoltZeroMinDate = mainVoltZeroDate;
+                  }
+         //  Store data
+             mainVoltZeroDate = 0;
+             bitClear(systemStatus, 1);
+//           Serial.print(" 1098 Zero end, dur "); Serial.println( mainVoltZeroDur ); Serial.println("");
+             }  //  Eo of Zero  
+       }  //  Eo mains volt fault
+
+
+  if ( (bitRead(systemStatus, 0) == 1) && ((main230Status & 0x09) == 0x00) ) {  //  Mains frequency fault calculation.
+        if ( mainHzHighDate != 0 ) {
+             mainHzHighDur = unixTimeLoc - mainHzHighDate;
+             mainHzHighDurTot += mainHzHighDur;
+             if ( mainHzHighDur > mainHzHighMaxDur ) {
+                  mainHzHighMaxDur = mainHzHighDur;
+                  mainHzHighMaxDate = mainHzHighDate;
+                  }
+             if ( mainHzHighDur < mainHzHighMinDur ) {
+                  mainHzHighMinDur = mainHzHighDur;
+                  mainHzHighMinDate = mainHzHighDate;
+                  }
+         //  Store data
+             mainHzHighDate = 0;
+             bitClear( systemStatus, 0 );
+//           Serial.print(" 1118 High Hz fin, dur "); Serial.println( mainHzHighDur );
+             }
+        if ( mainHzLowDate != 0 ) {
+             mainHzLowDur = unixTimeLoc - mainHzLowDate;
+             mainHzLowDurTot += mainHzLowDur;
+        if ( mainHzLowDur > mainHzLowMaxDur ) {
+             mainHzLowMaxDur = mainHzLowDur;
+             mainHzLowMaxDate = mainHzLowDate;
+             }
+        if ( mainHzLowDur < mainHzLowMinDur ) {
+             mainHzLowMinDur = mainHzLowDur;
+             mainHzLowMinDate = mainHzLowDate;
+             }
+         //  Store data
+             mainHzLowDate = 0;
+             bitClear( systemStatus, 0 );
+//           Serial.print(" 1135 Low Hz fin, dur "); Serial.println( mainHzLowDur );
+             }
+      }
+//   }   //  Test sec simulat  remove   __________________________________________
+
+
+  if ( bitRead(rtcDatTimState, 0) == 1 ) {    //  Sec routine.
+//     Serial.print(" 1140 UTime "); Serial.print( unixTimeLoc ); Serial.print(", "); Serial.print( mainVoltNow, 1 ); Serial.print("V, ");
+//     Serial.print( mainHzNow ); Serial.print("Hz, "); Serial.print( battVolt, 1 ); Serial.print("V, Sys "); Serial.println( systemStatus, BIN );
+
+       if ( ((systemStatus & 0x03) != 0x00) && (main230FaultTimer != 0) ) {
+             main230FaultTimer = unixTimeLoc;
+//           Serial.println(" 1145 230V Mains timer upd");
+             }
+
+       if ( (sec % 6) == 0 ) {
+           Serial.print(" 1142 Norm "); Serial.println( timeDiff );             
+             }
+     Serial.print(" 1144 UTime "); Serial.print( unixTimeLoc ); Serial.print(", "); Serial.print( mainVoltNow, 1 ); Serial.print("V, ");
+     Serial.print( mainHzNow, 1 ); Serial.print("Hz, "); Serial.print( battVolt, 1 ); Serial.print("V, Sys "); Serial.println( systemStatus, BIN );
+
+       }  //  Eo sec __________________________________
+
+
+
+  if ( bitRead(rtcDatTimState, 1) == 1 ) {    //   Min routine.
+//     Serial.print("\n 1153 "); dispTime(); Serial.println("\n");
+
+       battVolt = analogRead( battVoltPin ) * 3.0 * 0.00488759;               //  Battery voltage.
+       battVolt = 12.80;
+       batteryStatus = 0x00;
+       if ( battVolt >= (battVoltFloat + 0.3) ) {                   //  13.8V
+            bitSet(batteryStatus, 7 );                              //  Alarm
+//          Serial.println(" 1159 230V batt over charged");
+            if ( bitRead( systemConfig, 6) == 1 ) {
+                 battChargerState( 0, main230Status );
+                 }
+      //  Generate alarm
+            }
+         else if ( (battVolt >= 13.6) && (battVolt < 13.8) ) {      //  Boost
+                    bitSet(batteryStatus, 6);
+//                  Serial.println(" 1167 Batt boost ");
+                    if ( bitRead( systemConfig, 6) == 1 ) {
+                         battChargerState( 0, main230Status );
+                         }
+              //  Generate alarm
+                    }
+         else if ( (battVolt >= 13.3) && (battVolt < 13.6) ) {      //  Float
+                    bitSet(batteryStatus, 5);
+//                  Serial.println(" 1175 Batt float ");
+                    }
+         else if ( (battVolt >= 12.3) && (battVolt < 13.3) ) {      //  8.5hr remain, low battery mode.
+                    bitSet(batteryStatus, 4);
+//                  Serial.println(" 1179 Batt 8hr ");
+                    }
+         else if ( (battVolt >= 11.85) && (battVolt < 12.3) ) {     //  4hr remain, medium battery mode.
+                    bitSet(batteryStatus, 3);
+//                  Serial.println(" 1183 Batt 4hr ");
+                    }
+         else if ( (battVolt >= 11.55) && (battVolt < 11.85) ) {    //  2hr remain, low battery mode.
+                    batteryStatus |= 0x84;
+//                  Serial.println(" 1187 Batt low 2hr 230 charg");
+              //  Generate medium alarm
+                    }
+         else if ( (battVolt > 11.25) && (battVolt < 11.55) ) {    //  1hr remain, low power mode.
+                    batteryStatus |= 0x82;
+//                  Serial.println(" 1192 Batt 1hr, Urg Alm.\n");
+              //  Generate urgent alarm
+                    }
+         else {
+               batteryStatus |= 0x81;                               //  Dead battery mode.
+//             Serial.println("\n 1197 Battery dead, Urg Alm\n.");
+               lowPowerMode();                                      //  Energy saver mode.
+         //  Generate urgent alarm code
+               }
+//     Serial.print(" 1201 UTime "); Serial.print( unixTimeLoc );  Serial.print(", "); Serial.print( battVolt ); Serial.print("V, "); Serial.println( batteryStatus, BIN );  // Serial.println("");
+
+
+       if ( ((systemStatus & 0x03) == 0x00) && (main230FaultTimer != 0) ) {     //  Mains restoration
+//        Serial.print(" 1206 Mains stable  "); Serial.println( main230FaultTimer ); // Serial.println( batteryStatus, HEX );
+            if ( (batteryStatus & 0x7C) != 0x00 ) {
+                 uInt = mainsStabilityTime;                                     //  mainsStabilityTime;
+                 }
+              else {
+                    uInt = 20;                                                  //  Should be 90 sec.
+                    }
+            if ( (unixTimeLoc - main230FaultTimer) >= uInt ) {
+//                Serial.print(" 1214 uTime "); Serial.print( unixTimeLoc ); Serial.print(", mains stable delay "); Serial.println( uInt );
+                  select230Mains();
+            //  Disable alarms
+//              Serial.println("\n 1216 Mains restored 10Min.\n");
+                  }
+            }  // Eo mains restoration
+
+
+     if ( bitRead( battfloatCntr, 7 ) == 1 ) {
+          if ( battVolt >= (battVoltFloat - 0.20) ) {   //  13.3V
+               bitClear( battfloatCntr, 7 );
+               battfloatCntr = date;
+//             Serial.print("\n 1225 Float cntr "); Serial.println( battfloatCntr ); Serial.println("");
+               }
+          }
+
+
+     if ( (hour >= 8) && (hour <= 21) ) {
+//         Serial.println(" 1231 Day 230V charge ");
+           if ( battVolt > (battVoltFloat - 0.80) ) {        //  12.7V. Solar / wind connected.  ???????????
+//              Serial.println(" 1233 Day 12.8 charge Off ");
+                battChargerState( 0, main230Status );
+                }
+            else {
+                  if ( (bitRead( systemConfig, 5) == 0) && ((systemStatus & 0x03) == 0x00) ) {    //  230V charger, No solar/wind.
+                        if ( ( bitRead( systemStatus, 3) == 0) && ((batteryStatus & 0x06) != 0x00) ) {  //  Day 230 charge
+//                             Serial.println("\n 1239 Day 230V charge up");
+                               battChargerState( 1, main230Status );
+                               }
+                          else if ( bitRead( systemStatus, 3) == 1 ) {
+                                    if ( (batteryStatus & 0x0E) != 0x00 ) {
+                                          battVoltLowTimer = unixTimeLoc;
+//                                        Serial.println(" 1245 230V Batt timer upd");
+                                          }
+                                      else if ( (unixTimeLoc - battVoltLowTimer) >= (battVoltStabTime - 0000) ) {  //  1hr delay in seconds
+//                                               Serial.println("\n 1248 230V batt charge stop");
+                                                 battChargerState( 0, main230Status );
+                                                 }
+                                    }
+                        }
+                  }
+           }  //  Eo 8 - 20
+
+       else if ( ((hour >= 22) && ( hour < 24)) || ((hour >= 0) && (hour < 7)) ) {
+//                Serial.print(" 1257 Night charg "); Serial.print( battVolt ); Serial.print("V, batt stat "); Serial.println( batteryStatus, BIN );
+                 if ( (bitRead( systemConfig, 6) == 1) && ((systemStatus & 0x03) == 0x00) ) {    //  230V charger, No solar/wind.
+                       uInt = date - battfloatCntr;                                              //  What if date < battfloatcntr ?????
+                       if ( uInt >= 5 ) {
+                            if ( (bitRead(systemStatus, 3) == 0) && ((batteryStatus & 0x06) != 0x00) ) {
+//                               Serial.println("\n 1262 Night batt bost start");
+                                 battChargerState( 1, main230Status );
+                                 }
+                              else if ( (bitRead(systemStatus, 3) == 1) && ((batteryStatus & 0x20) != 0x00) ) {                     //  2
+//                                      Serial.println("\n 1266 Night batt bost stop");
+                                        battChargerState( 0, main230Status );
+                                        battfloatCntr = date;
+                                        }
+                            }
+                         else {
+                               if ( (bitRead( systemStatus, 3) == 0) && ((batteryStatus & 0x06) != 0x00) ) {  //  Day 230 charge
+//                                   Serial.println("\n 1273 Night 230V charge up");
+                                     battChargerState( 1, main230Status );
+                                     }
+                                 else if ( bitRead( systemStatus, 3) == 1 ) {
+                                           if ( (batteryStatus & 0x0E) != 0x00 ) {
+//                                              Serial.println(" 1278 230V Batt timer upd");
+                                                battVoltLowTimer = unixTimeLoc;
+                                                }
+                                             else if ( (unixTimeLoc - battVoltLowTimer) >= (battVoltStabTime - 0000) ) {  //  2hr delay in seconds
+//                                                      Serial.println("\n 1282 230V batt charge stop");
+                                                        battChargerState( 0, main230Status );
+                                                        }
+                                           }
+                               }
+                      }
+                  }  //  Eo 22 - 7
+ 
+  
+/*       Serial.print("\n 1301 Norm "); Serial.print( timeDiff ); Serial.print("us, Max ");
+       if ( timeMax <= 1000 ) {
+          Serial.print( timeMax ); Serial.print("us, min ");
+            }
+          else {
+                Serial.print( float(timeMax / 1000) ); Serial.print("ms, min ");
+                }
+       Serial.print( timeMin ); Serial.println("us");
+//       timeMax = uIntMin;
+//       timeMin = uIntMax;
+//       Serial.println("");
+*/
+       }  //  Eo min __________________________________
+
+
+
+     if ( bitRead( rtcDatTimState, 2) == 1 ) {                    //  Hour routines
+//        Serial.print(" 1296 "); dispTime(); Serial.println("  Hr");
+ 
+          }  // Eo hour __________________________________
+
+
+     if ( bitRead( rtcDatTimState, 3) == 1 ) {                    //  Daily routines
+//        Serial.print(" 1302 "); dispDigitalDate(); Serial.println("  Date");
+
+          mainVoltHigh = mainVoltDef;
+          mainVoltLow = mainVoltDef;
+          mainVoltSagDate = 0;
+          mainVoltSag = mainVoltDef;
+          mainVoltSurgeDate = 0;
+          mainVoltSurge = mainVoltDef;
+          mainVoltZeroDate = 0;
+
+          bitSet( battfloatCntr, 7 );
+
+          }  // Eo Daily __________________________________
+
+
+     if ( bitRead( rtcDatTimState, 4) == 1 ) {                    //  Monthly routines
+//        Serial.print(" 1318 "); dispTime(); Serial.println("  Hr");
+          
+          battfloatCntr = 128;
+ 
+          }  // Eo monthly __________________________________
+
+
+
+  rtcDatTimState = B00000000;
+  testSec = 0;                                     //   Test data.
+
+  timeFinish = micros();
+  timeDiff = timeFinish - timeStart;
+  if ( timeDiff > timeMax ) {
+       timeMax = timeDiff;
+//     Serial.print(" 1335 Max "); Serial.println( timeMax );
+       }
+  if ( timeDiff < timeMin ) {
+       timeMin = timeDiff;
+//     Serial.print(" 1335 Min "); Serial.println( timeMin );
+       }
+  
+  
+  if ( (millis() - milliPrev) >= 1000 ) {
+        milliPrev += 1000;
+        ++sec;
+        ++unixTimeLoc;                             //  Test data
+//      Serial.print("\n 1334  uTime "); Serial.println( unixTimeLoc );
+        }
+  if ( sec != prevSec ) {
+       bitSet(rtcDatTimState, 0);
+       testSec = 1;
+       if ( sec > 59 ) {
+            ++min;
+            sec = 0;
+            }
+       prevSec = sec;
+       if ( min != prevMin ) {
+            bitSet(rtcDatTimState, 1);
+            if ( min > 59 ) {
+                 ++hour;
+                 min = 0;
+                 }
+            prevMin = min;
+            if ( hour != prevHour ) {
+ //              Serial.print("\n 1352 "); dispTime(); Serial. println(" new hr\n");
+                 bitSet(rtcDatTimState, 2);
+                 if ( hour > 23 ) {
+                      ++date;
+                      hour = 0;
+                      }
+                 prevHour = hour;
+                 if ( date != prevDate ) {
+ //                 Serial.print("\n 1361 "); dispTime(); Serial. println(" new date\n");
+                      bitSet(rtcDatTimState, 3);
+                      prevDate = date;
+                      
+                      }
+                 }
+            }
+       }
+
+
+}  //  Eo Loop  __________________________________________________________________
+
+
+
+
+ //  So Functions  _______________________________________________________________
+
+
+ void printDigits(byte digits){                //  Function to display : and leading 0 for digits.
+   Serial.print(":");
+   if(digits < 10)
+      Serial.print('0');
+   Serial.print(digits);
+   }
+
+ void dispDigitalTime() {
+   Serial.print(hour);
+   printDigits(min);
+   printDigits(sec);
+   }
+
+ void dispDigitalDate() {
+   Serial.print(" ");
+   Serial.print(date);
+   Serial.print("/");
+   printDigits(mon);
+   Serial.print("/");
+   Serial.print(year);
+   }
+
+ void dispDigitalClock() {
+   Serial.print(date);
+   Serial.print("/");
+   printDigits(mon);
+   Serial.print("/");
+   Serial.print(year);
+   Serial.print(" ");
+   Serial.print(hour);
+   printDigits(min);
+   printDigits(sec);
+   }
+
+
+ void period() {                               //  Interrupt service routine
+   if (started)
+       endTime = micros();
+     else 
+         startTime = micros();
+   started = !started;
+   }  //  Eof ISR
+
+
+ void select230Mains() {                       //  230VAC mains power source selected.
+   digitalWrite( rly230StandbyPin, 0 );        //  Relay 23ms rel, 28ms oper time.
+   bitClear(systemStatus, 4);
+   digitalWrite( rly230SelectPin, 0 );
+   delay(10);
+   digitalWrite( rly230MainsPin,  1 );         //  Switch On mains supply.
+   main230FaultTimer = 0;
+ Serial.print(" 1481 "); dispDigitalTime(); Serial.println(F("  Mains relay acivated.\n"));
+   }
+
+ void select230Standby() {                     //  230VAC standby power source selected.
+   if ( (batteryStatus & 0x7C) != 0x00 ) {
+         digitalWrite( rly230MainsPin,  0 );
+         bitClear(systemStatus, 2);
+         digitalWrite( rly230SelectPin, 1 );   //  Relay 23ms rel, 28ms oper time.
+         bitSet(systemStatus, 4);
+         delay(10);
+         digitalWrite( rly230StandbyPin, 1 );  //  Switch On standby supply.
+         main230FaultTimer = unixTimeLoc;
+       Serial.print(" 1493 "); dispDigitalTime(); Serial.println(F("  Standby relay activated\n"));
+         }
+     else if ( (batteryStatus & 0x03) != 0x00 ) {
+               lowPowerMode();
+               }
+   }
+
+ void lowPowerMode() {                         //  230VAC standby power source selected.
+   digitalWrite( rly230MainsPin,  0 );
+   digitalWrite( rly230SelectPin, 0 );         //  Relay 23ms rel, 28ms oper time.
+   digitalWrite( rly230StandbyPin, 0 );        //  Switch On standby supply.
+   battVoltLowTimer = unixTimeLoc;
+   bitClear(systemStatus, 2);
+   bitClear(systemStatus, 4);
+ Serial.print(" 1507 "); dispDigitalTime(); Serial.println(F("  Low power mode, relays deactivated"));
+   if ( bitRead( batteryStatus, 0 ) == 1 ) {
+        battChargerState( 0, main230Status );
+//      Serial.print(" 1510 "); dispTime(); Serial.println(F("  Batt charg Off"));
+        }
+// Serial.println("");
+   }
+
+
+ void battChargerState( byte state, byte main230State) {  //   Turn battery charger ON / OFF 
+   if ( (state == 1) && (bitRead( systemStatus, 2 ) == 1) ) {
+         digitalWrite( battChargerPin, 1 );
+         battVoltLowTimer = unixTimeLoc;
+         bitSet(systemStatus, 3);
+//       Serial.print(" 1491 "); dispTime(); Serial.println(F("  230V charger On\n"));
+         }
+     else if ( state == 0 ) {
+               digitalWrite( battChargerPin, 0 );
+               battVoltLowTimer = 0;
+               bitClear(systemStatus, 3);
+//             Serial.print(" 1497 "); dispTime(); Serial.println(F("  230V charger Off\n"));
+               }
+   }
+
+
+
+ //  Eo Functions  _______________________________________________________________
+
+
+/*
+ void b( u, byte ) {
+
+
+   }  //  Eo Funct
+
+
+
+ void b( u, byte ) {
+
+
+   }  //  Eo Funct
+
+*/
