@@ -21,7 +21,8 @@
             "dependsOn": [
                 "Build_Arduino_Code",
                 "Start_Wokwi"
-            ]
+            ],
+            "problemMatcher": [],
         }        
     ]
 }
