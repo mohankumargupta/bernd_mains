@@ -1,7 +1,0 @@
-#line 1 "C:\\Users\\Mohan\\Developer\\wowki\\bernd_mains\\.vscode\\arduino.json"
-{
-    "sketch": "bernd_mains.ino",
-    "output": "build",
-    "board": "arduino:avr:nano",
-    "configuration": "cpu=atmega328"
-}
